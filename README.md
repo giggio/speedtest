@@ -26,6 +26,15 @@ docker run --rm -ti -v `pwd`/data:/app/data giggio/speedtest
 After running will have a .json file with a date/time structure
 (e.g. 202011212124.json) and a `speed.csv` file.
 
+## Add a cron
+
+To have a history a good idea is to add a cron job (with `crontab -e`) like
+this:
+
+````cron
+0 */3 * * * docker run --rm -ti -v /path/to/my/data:/app/data giggio/speedtest
+````
+
 ## Contributing
 
 Questions, comments, bug reports, and pull requests are all welcome.  Submit them at
