@@ -32,7 +32,7 @@ To have a history a good idea is to add a cron job (with `crontab -e`) like
 this:
 
 ````cron
-0 */3 * * * docker run --rm -ti -v /path/to/my/data:/app/data giggio/speedtest
+0 */3 * * * docker run --rm -ti -v /path/to/my/data:/app/data -v /etc/localtime:/etc/localtime:ro giggio/speedtest
 ````
 
 ## Contributing

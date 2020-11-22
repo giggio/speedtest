@@ -24,7 +24,7 @@ RESULT=`speed-test -vj`
 #RESULT='{"ping":14,"download":121,"upload":62.3,"data":{"speeds":{"download":121.039,"upload":62.33,"originalDownload":13330241,"originalUpload":6840412},"client":{"ip":"0.0.0.0","lat":-3.038,"lon":-51.333,"isp":"Comcast","isprating":2.4,"rating":0,"ispdlavg":0,"ispulavg":0,"country":"BR"},"server":{"host":"speedtest.foobar.com.br:1234","lat":2.11,"lon":6.11,"location":"NYC","country":"Brazil","cc":"BR","sponsor":"Telecom America","distance":37.7,"distanceMi":1.6,"ping":13.9,"id":"99999"}}}'
 echo $RESULT > $JSON
 echo "Got result:"
-if [ -t 1 ] ; then
+if [ -t 1 ]; then
   echo "$RESULT" | jq
 else
   echo "$RESULT"
