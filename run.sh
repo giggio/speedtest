@@ -67,7 +67,7 @@ DT=`date -d "$NOW" '+%Y/%m/%d %H:%M:%S'`
 if $VERBOSE; then
   echo "Writing to CSV: $CSV"
 fi
-jq .ping,.data.speeds.download,.data.speeds.upload,.data.client.ip,.data.client.isp,.data.server.host,.data.server.lat,.data.server.lon,.data.server.location,.data.server.country,.data.location.distance,.data.server.ping,.data.server.id $JSON \
+jq .ping,.data.speeds.download,.data.speeds.upload,.data.client.ip,.data.client.isp,.data.server.host,.data.server.lat,.data.server.lon,.data.server.location,.data.server.country,.data.server.distance,.data.server.ping,.data.server.id $JSON \
 | { printf "$DT",; paste -d, - - - - - - - - - - - - - ; } >> $CSV
 if $VERBOSE; then
   echo "Done."
