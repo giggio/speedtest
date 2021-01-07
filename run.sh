@@ -31,8 +31,8 @@ if ! hash jq 2>/dev/null; then
   echo 2>&1 "No 'jq' available."
   exit 1
 fi
-if ! hash speed-test 2>/dev/null; then
-  echo 2>&1 "No 'speed-test' available, install with 'npm i -g speed-test'."
+if ! $SIMULATE && ! hash speedtest 2>/dev/null; then
+  echo 2>&1 "No 'speedtest' available, install with 'apt install speedtest'."
   exit 1
 fi
 a="/$0"; a=${a%/*}; a=${a#/}; a=${a:-.}; DIR=$(cd "$a"; pwd)
@@ -42,17 +42,20 @@ NOW=`date -u`
 FILE=`date -d "$NOW" +%Y%m%d%H%M%S`
 CSV=$DATA_DIR/speed.csv
 JSON=$DATA_DIR/$FILE.json
-if ! [ -f $CSV ]; then
-  echo "Creating cs file $CSV."
-  echo 'date,ping,speeds_download,speeds_upload,client_ip,client_isp,server_host,server_lat,server_lon,server_location,server_country,location_distance,server_ping,server_id' > $CSV
+HEADER='date,ping,speeds_download,speeds_upload,client_ip,client_isp,server_host,server_lat,server_lon,server_location,server_country,location_distance,server_ping,server_id'
+if $SIMULATE; then
+  echo $HEADER
+elif ! [ -f $CSV ]; then
+  echo "Creating csv file $CSV."
+  echo $HEADER > $CSV
 fi
 if $VERBOSE; then
   echo "Running speed test."
 fi
 if $SIMULATE; then
-  RESULT='{"ping":14,"download":121,"upload":62.3,"data":{"speeds":{"download":121.039,"upload":62.33,"originalDownload":13330241,"originalUpload":6840412},"client":{"ip":"0.0.0.0","lat":-3.038,"lon":-51.333,"isp":"Comcast","isprating":2.4,"rating":0,"ispdlavg":0,"ispulavg":0,"country":"BR"},"server":{"host":"speedtest.foobar.com.br:1234","lat":2.11,"lon":6.11,"location":"NYC","country":"Brazil","cc":"BR","sponsor":"Telecom America","distance":37.7,"distanceMi":1.6,"ping":13.9,"id":"99999"}}}'
+  RESULT='{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}'
 else
-  RESULT=`speed-test -vj`
+  RESULT=`speedtest --accept-license --accept-gdpr --format=json --progress=no`
 fi
 echo $RESULT > $JSON
 if $VERBOSE; then
@@ -67,8 +70,13 @@ DT=`date -d "$NOW" '+%Y/%m/%d %H:%M:%S'`
 if $VERBOSE; then
   echo "Writing to CSV: $CSV"
 fi
-jq .ping,.data.speeds.download,.data.speeds.upload,.data.client.ip,.data.client.isp,.data.server.host,.data.server.lat,.data.server.lon,.data.server.location,.data.server.country,.data.server.distance,.data.server.ping,.data.server.id $JSON \
-| { printf "$DT",; paste -d, - - - - - - - - - - - - - ; } >> $CSV
+RESULT=`echo $RESULT \
+| jq '.ping.latency,(.download.bandwidth*8/1024/1024*100|round/100),(.upload.bandwidth*8/1024/1024*100|round/100),.interface.externalIp,.isp,.server.host,null,null,.server.location,.server.country,null,null,.server.id' \
+| { printf "$DT",; paste -d, - - - - - - - - - - - - - ; }`
+if $SIMULATE || $VERBOSE; then
+  echo $RESULT
+fi
+echo $RESULT >> $CSV
 if $VERBOSE; then
   echo "Done."
 fi
