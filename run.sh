@@ -31,9 +31,13 @@ if ! hash jq 2>/dev/null; then
   echo 2>&1 "No 'jq' available."
   exit 1
 fi
-if ! hash speed-test 2>/dev/null; then
-  echo 2>&1 "No 'speed-test' available, install with 'npm i -g speed-test'."
-  exit 1
+if [ $(npm list -g | grep -c 'speed-test') -eq 0 ]; then
+    if [ $(id -u) -ne 0 ]; then
+        echo 2>&1 "No 'speed-test' available. You can install it manually with 'npm install -g speed-test' or run this script with elevated privileges to install automatically."
+        exit 1
+    fi
+    echo 2>&1 "Installing speed-test package..."
+    npm install -g speed-test --no-shrinkwrap -y >/dev/null
 fi
 a="/$0"; a=${a%/*}; a=${a#/}; a=${a:-.}; DIR=$(cd "$a"; pwd)
 DATA_DIR=$DIR/data
