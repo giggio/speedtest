@@ -1,10 +1,12 @@
-FROM alpine:3 as base
-LABEL maintainer="giggio@giggio.net"
-ENTRYPOINT [ "/usr/bin/trackspeedtest" ]
+FROM rust:1.49-alpine as speedtestbin
 RUN wget https://bintray.com/ookla/download/download_file?file_path=ookla-speedtest-1.0.0-x86_64-linux.tgz -O speedtest.tgz && \
     tar -xvzf speedtest.tgz && \
     mv ./speedtest /usr/bin/ && \
     rm speedtest.*
+
+FROM opensuse/leap:15.2 as opensuse
+RUN ldd /bin/echo | tr -s '[:blank:]' '\n' | grep '^/' | \
+    xargs -I % sh -c 'mkdir -p $(dirname deps%); cp % deps%;'
 
 FROM rust:1.49-alpine as build
 RUN apk add --no-cache musl-dev
@@ -15,5 +17,11 @@ COPY . .
 RUN rm ./src/dummy.rs && cargo build --release
 RUN strip target/release/trackspeedtest
 
-FROM base
-COPY --from=build target/release/trackspeedtest /usr/bin/
+FROM scratch
+LABEL maintainer="giggio@giggio.net"
+ENTRYPOINT [ "/trackspeedtest" ]
+COPY --from=speedtestbin /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=speedtestbin /usr/bin/speedtest .
+COPY --from=opensuse /bin/echo .
+COPY --from=opensuse  /deps /
+COPY --from=build target/release/trackspeedtest .

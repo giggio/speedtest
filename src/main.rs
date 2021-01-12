@@ -5,6 +5,7 @@ use std::env;
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use which::which;
 mod macros;
@@ -100,35 +101,67 @@ fn append_to_summary_file(result: &SpeedResult) -> Result<(), String> {
 }
 
 fn run_speedtest(simulate: bool) -> Result<String, String> {
-    match which(if simulate { "echo" } else { "speedtest" }) {
-        Ok(speedtestbin) => {
-            let child = Command::new(&speedtestbin)
-                .args(if simulate {vec![
-                    r#"{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}"#,
-                ]} else {vec![
-                    "--accept-license",
-                    "--accept-gdpr",
-                    "--format=json",
-                    "--progress=no",
-                ]})
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-                .map_err(|e| format!("Could not run {}.\nError:\n{}", speedtestbin.to_str().or_else(|| Some("<filename not found>")).unwrap(), e))?;
-            let output = child
-                .wait_with_output()
-                .map_err(|e| format!("Could wait for speedtest execution.\nError:\n{}", e))?;
-            if output.status.success() {
-                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    let (speedtestbin, args) = find_speedtest_binary_and_args(simulate)?;
+    let child = Command::new(&speedtestbin)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|err| {
+            format!(
+                "Could not run {}.\nError:\n{}",
+                speedtestbin
+                    .to_str()
+                    .or_else(|| Some("<filename not found>"))
+                    .unwrap(),
+                err
+            )
+        })?;
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("Could wait for speedtest execution.\nError:\n{}", e))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(format!(
+            "Speedtest executable exited with an error. Output:\n{}\nErrors:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
+
+fn find_speedtest_binary_and_args<'a>(simulate: bool) -> Result<(PathBuf, Vec<&'a str>), String> {
+    let (bin, args) = if simulate {
+        (
+            "echo",
+            vec![
+                r#"{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}"#,
+            ],
+        )
+    } else {
+        (
+            "speedtest",
+            vec![
+                "--accept-license",
+                "--accept-gdpr",
+                "--format=json",
+                "--progress=no",
+            ],
+        )
+    };
+    match which(bin) {
+        Ok(speedtestbin) => Ok((speedtestbin, args)),
+        Err(_) => {
+            let cwd = env::current_dir()
+                .map_err(|err| format!("Error when finding current working directory: {}", err))?;
+            let speedtestbin = cwd.join(bin);
+            if speedtestbin.exists() {
+                Ok((speedtestbin, args))
             } else {
-                Err(format!(
-                    "Speedtest executable exited with an error. Output:\n{}\nErrors:\n{}",
-                    String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
-                ))
+                Err("Could not find speedtest binary.".to_owned())
             }
         }
-        Err(_) => return Err("Could not find speedtest binary.".to_owned()),
     }
 }
 
