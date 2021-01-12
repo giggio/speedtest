@@ -3,13 +3,11 @@ use clap::{App, Arg, SubCommand};
 use serde::Deserialize;
 use std::env;
 use std::fs;
-use std::fs::File;
-use std::fs::OpenOptions;
-//use serde_json::Result;
-use std::process::Command;
+use std::fs::{File, OpenOptions};
+use std::io::prelude::*;
+use std::process::{Command, Stdio};
 use which::which;
 mod macros;
-use std::io::prelude::*;
 
 static mut VERBOSE: bool = false;
 
@@ -41,11 +39,7 @@ fn run() -> Result<(), Option<String>> {
 }
 
 fn command_run(run: Run) -> Result<(), Option<String>> {
-    let json_result = if run.simulate {
-        Ok(r#"{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}"#.to_owned())
-    } else {
-        run_speedtest()
-    }?;
+    let json_result = run_speedtest(run.simulate)?;
     let result = convert_json(json_result)?;
     write_to_result_file(&result)?;
     append_to_summary_file(&result)?;
@@ -105,24 +99,30 @@ fn append_to_summary_file(result: &SpeedResult) -> Result<(), String> {
     Ok(())
 }
 
-fn run_speedtest() -> Result<String, String> {
-    match which("speedtest") {
+fn run_speedtest(simulate: bool) -> Result<String, String> {
+    match which(if simulate { "echo" } else { "speedtest" }) {
         Ok(speedtestbin) => {
-            let child = Command::new(speedtestbin)
-                .args(&[
+            let child = Command::new(&speedtestbin)
+                .args(if simulate {vec![
+                    r#"{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}"#,
+                ]} else {vec![
                     "--accept-license",
                     "--accept-gdpr",
                     "--format=json",
                     "--progress=no",
-                ])
+                ]})
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .spawn()
-                .unwrap();
-            let output = child.wait_with_output().unwrap();
+                .map_err(|e| format!("Could not run {}.\nError:\n{}", speedtestbin.to_str().or_else(|| Some("<filename not found>")).unwrap(), e))?;
+            let output = child
+                .wait_with_output()
+                .map_err(|e| format!("Could wait for speedtest execution.\nError:\n{}", e))?;
             if output.status.success() {
                 Ok(String::from_utf8_lossy(&output.stdout).to_string())
             } else {
                 Err(format!(
-                    "Speedtest executable returned an error. Output:\n{}\nErrors:\n{}",
+                    "Speedtest executable exited with an error. Output:\n{}\nErrors:\n{}",
                     String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 ))
