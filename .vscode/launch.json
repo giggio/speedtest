@@ -1,0 +1,42 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'trackspeedtest'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=trackspeedtest",
+                    "--package=trackspeedtest"
+                ],
+                "filter": {
+                    "name": "trackspeedtest",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'trackspeedtest'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=trackspeedtest",
+                    "--package=trackspeedtest"
+                ],
+                "filter": {
+                    "name": "trackspeedtest",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
