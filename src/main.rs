@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use serde::Deserialize;
 use std::env;
 use std::fs;
@@ -24,7 +24,7 @@ fn main() {
 }
 
 fn run() -> Result<(), Option<String>> {
-    let args = get_args();
+    let args = get_args_app().get_matches();
     unsafe {
         VERBOSE = args.occurrences_of("v") > 0;
     }
@@ -196,16 +196,12 @@ fn command_alert(_alert: Alert) -> Result<(), Option<String>> {
     unimplemented!();
 }
 
-fn get_args<'a>() -> clap::ArgMatches<'a> {
-    let app = get_args_app();
-    app.get_matches()
-}
-
 fn get_args_app<'a, 'b>() -> App<'a, 'b> {
     App::new("trackspeedtest")
         .version("0.1")
         .author("Giovanni Bassi <giggio@giggio.net>")
-        .about("Runs speed test and adds results to file and alert if necessary")
+        .about("Runs and manages speed tests")
+        .setting(AppSettings::ArgRequiredElseHelp)
         .arg(
             Arg::with_name("v")
                 .short("v")
