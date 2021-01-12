@@ -1,10 +1,15 @@
 use chrono::{DateTime, Utc};
 use clap::{App, Arg, SubCommand};
 use serde::Deserialize;
+use std::env;
+use std::fs;
+use std::fs::File;
+use std::fs::OpenOptions;
 //use serde_json::Result;
 use std::process::Command;
 use which::which;
 mod macros;
+use std::io::prelude::*;
 
 static mut VERBOSE: bool = false;
 
@@ -36,55 +41,95 @@ fn run() -> Result<(), Option<String>> {
 }
 
 fn command_run(run: Run) -> Result<(), Option<String>> {
-    let result = if run.simulate {
-        SpeedResult {
-            client_ip: String::from("15.22.77.1"),
-            client_isp: String::from("Some ISP"),
-            date: Utc::now(),
-            download: 123.45,
-            upload: 65.43,
-            ping: 5.7279999999999998,
-            server_country: String::from("Brazil"),
-            server_host: String::from("Some host"),
-            server_id: 99999,
-            server_location: String::from("Diadema"),
-            jsonresult: String::from(
-                r#"{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}"#,
-            ),
-        }
+    let json_result = if run.simulate {
+        Ok(r#"{"type":"result","timestamp":"2021-01-03T12:10:00Z","ping":{"jitter":0.28499999999999998,"latency":5.7279999999999998},"download":{"bandwidth":20309419,"bytes":176063552,"elapsed":8815},"upload":{"bandwidth":13206885,"bytes":195610380,"elapsed":15015},"packetLoss":0,"isp":"Some ISP","interface":{"internalIp":"192.168.1.2","name":"eth0","macAddr":"99:99:99:99:99:99","isVpn":false,"externalIp":"84.6.0.1"},"server":{"id":99999,"name":"Some Server","location":"São Paulo","country":"Brazil","host":"someserver.nonexistentxyz.com","port":10000,"ip":"15.22.77.1"},"result":{"id":"babad438-ac4b-47db-bc28-2de7e257bd28","url":"https://www.fakespeedtest.net/result/c/babad438-ac4b-47db-bc28-2de7e257bd28"}}"#.to_owned())
     } else {
-        match which("speedtest") {
-            Ok(speedtestbin) => {
-                let child = Command::new(speedtestbin)
-                    .args(&[
-                        "--accept-license",
-                        "--accept-gdpr",
-                        "--format=json",
-                        "--progress=no",
-                    ])
-                    .spawn()
-                    .unwrap();
-                let output = child.wait_with_output().unwrap();
-                let speed_result = if output.status.success() {
-                    let stdout = String::from_utf8_lossy(&output.stdout);
-                    match convert_json(stdout.to_string()) {
-                        Ok(result) => result,
-                        Err(err) => return Err(Some(err)),
-                    }
-                } else {
-                    let msg = format!(
-                        "Speedtest executable returned an error. Output:\n{}\nErrors:\n{}",
-                        String::from_utf8_lossy(&output.stdout),
-                        String::from_utf8_lossy(&output.stderr)
-                    );
-                    return Err(Some(msg));
-                };
-                speed_result
-            }
-            Err(_) => return Err(Some("Could not find speedtest binary.".to_owned())),
-        }
-    };
+        run_speedtest()
+    }?;
+    let result = convert_json(json_result)?;
+    write_to_result_file(&result)?;
+    append_to_summary_file(&result)?;
     Ok(())
+}
+
+fn write_to_result_file(result: &SpeedResult) -> Result<(), String> {
+    let cwd = env::current_dir()
+        .map_err(|err| format!("Error when finding current working directory: {}", err))?;
+    let data_dir = cwd.join("data");
+    if !data_dir.exists() {
+        std::fs::create_dir(&data_dir)
+            .map_err(|err| format!("Error when creating data directory: {}", err))?;
+    }
+    let file_name = format!("{}.json", result.date.format("%Y%m%d%H%M%S"));
+    let file_path = data_dir.join(file_name);
+    fs::write(file_path, result.jsonresult.as_bytes())
+        .map_err(|err| format!("Error when writing to file: {}", err))?;
+    Ok(())
+}
+
+fn append_to_summary_file(result: &SpeedResult) -> Result<(), String> {
+    let cwd = env::current_dir()
+        .map_err(|err| format!("Error when finding current working directory: {}", err))?;
+    let data_dir = cwd.join("data");
+    let file_path = data_dir.join("speed.csv");
+    let mut file = if file_path.exists() {
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .append(true)
+            .open(file_path)
+            .map_err(|err| format!("Error when creating file: {}", err))?
+    } else {
+        let mut file =
+            File::create(&file_path).map_err(|err| format!("Error creating file: {}", err))?;
+        file.write_all("date,ping,speeds_download,speeds_upload,client_ip,client_isp,server_host,server_lat,server_lon,server_location,server_country,location_distance,server_ping,server_id\n".as_bytes())
+            .map_err(|err| format!("Error writing header to file: {}", err))?;
+        file
+    };
+    let line = format!(
+        r#"{},{},{:.2},{:.2},"{}","{}","{}",null,null,"{}","{}",null,null,{}{}"#,
+        result.date.format("%Y/%m/%d %H:%M:%S"),
+        result.ping,
+        result.download * 8.0 / 1024.0 / 1024.0,
+        result.upload * 8.0 / 1024.0 / 1024.0,
+        result.client_ip,
+        result.client_isp,
+        result.server_host,
+        result.server_location,
+        result.server_country,
+        result.server_id,
+        "\n"
+    );
+    file.write(line.as_bytes())
+        .map_err(|err| format!("Error when writing to file: {}", err))?;
+    Ok(())
+}
+
+fn run_speedtest() -> Result<String, String> {
+    match which("speedtest") {
+        Ok(speedtestbin) => {
+            let child = Command::new(speedtestbin)
+                .args(&[
+                    "--accept-license",
+                    "--accept-gdpr",
+                    "--format=json",
+                    "--progress=no",
+                ])
+                .spawn()
+                .unwrap();
+            let output = child.wait_with_output().unwrap();
+            if output.status.success() {
+                Ok(String::from_utf8_lossy(&output.stdout).to_string())
+            } else {
+                Err(format!(
+                    "Speedtest executable returned an error. Output:\n{}\nErrors:\n{}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ))
+            }
+        }
+        Err(_) => return Err("Could not find speedtest binary.".to_owned()),
+    }
 }
 
 fn convert_json(json: String) -> Result<SpeedResult, String> {
@@ -114,7 +159,7 @@ fn convert_json(json: String) -> Result<SpeedResult, String> {
     }
 }
 
-fn command_alert(alert: Alert) -> Result<(), Option<String>> {
+fn command_alert(_alert: Alert) -> Result<(), Option<String>> {
     unimplemented!();
 }
 
@@ -302,6 +347,7 @@ struct RawBandwidth {
     bandwidth: f64,
 }
 #[derive(Deserialize)]
+#[allow(non_snake_case)] // todo: do we need this or json parsing works with snake casing?
 struct RawInterface {
     externalIp: String,
 }
