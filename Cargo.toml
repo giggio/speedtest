@@ -1,10 +1,13 @@
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package]
 name = "trackspeedtest"
 version = "0.1.0"
 authors = ["Giovanni Bassi <giggio@giggio.net>"]
 edition = "2018"
+# package
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+lto = true
 
 [dependencies]
 chrono = "0.4.19"

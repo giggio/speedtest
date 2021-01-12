@@ -288,6 +288,7 @@ enum Config<'a> {
     Run(Run),
     Alert(Alert<'a>),
 }
+
 #[derive(Debug)]
 struct Run {
     simulate: bool,
@@ -326,11 +327,8 @@ struct SpeedResult {
     jsonresult: String,
 }
 
-// HEADER='date,ping,speeds_download,speeds_upload,client_ip,client_isp,server_host,server_lat,server_lon,server_location,server_country,location_distance,server_ping,server_id'
-
 #[derive(Deserialize)]
 struct RawSpeedResult {
-    // | jq '.ping.latency,(.download.bandwidth*8/1024/1024*100|round/100),(.upload.bandwidth*8/1024/1024*100|round/100),.interface.externalIp,.isp,.server.host,null,null,.server.location,.server.country,null,null,.server.id' \
     ping: RawPing,
     download: RawBandwidth,
     upload: RawBandwidth,
