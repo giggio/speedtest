@@ -385,3 +385,21 @@ struct RawServer {
     country: String,
     id: u32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn args_run_simulated() {
+        let args = get_args_app()
+            .clone()
+            .get_matches_from_safe(vec!["trackspeedtest", "run", "--simulate"])
+            .unwrap();
+        let run = match get_config_from_cl(&args).unwrap() {
+            Config::Alert(_) => panic!("Should not be alert"),
+            Config::Run(run) => run,
+        };
+        assert_eq!(true, run.simulate);
+    }
+}
