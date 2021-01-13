@@ -1,9 +1,7 @@
-#![macro_use]
-
 macro_rules! printlnv {
         ($($arg:tt)*) => ({
             unsafe {
-                if VERBOSE {
+                if $crate::VERBOSE {
                     println!($($arg)*);
                 }
             }
