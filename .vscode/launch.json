@@ -4,7 +4,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'trackspeedtest'",
+            "name": "Debug trackspeedtest run",
             "cargo": {
                 "args": [
                     "build",
@@ -16,7 +16,36 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": [
+                "run",
+                "-vs"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug trackspeedtest alert",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=trackspeedtest",
+                    "--package=trackspeedtest"
+                ],
+                "filter": {
+                    "name": "trackspeedtest",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "alert",
+                "giggio@giggio.net",
+                "smtp.google.com:1111",
+                "300",
+                "150",
+                "--count",
+                "3"
+            ],
             "cwd": "${workspaceFolder}"
         },
         {

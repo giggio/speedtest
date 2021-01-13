@@ -44,10 +44,9 @@ impl Args {
             )
             .subcommand(
                 SubCommand::with_name("alert")
-                    .about("Sends an email if last average is bellow an bandwith value")
+                    .about("Sends an e-mail message if the average of the last measurements is bellow a bandwith value")
                     .arg(
                         Arg::with_name("email")
-                            .short("e")
                             .long("email")
                             .takes_value(true)
                             .index(1)
@@ -56,7 +55,6 @@ impl Args {
                     )
                     .arg(
                         Arg::with_name("smtp server")
-                            .short("s")
                             .long("smtp")
                             .takes_value(true)
                             .index(2)
@@ -69,6 +67,64 @@ impl Args {
                                 }
                                 if let Err(_) = parts[1].parse::<u16>() {
                                     return Err("Port is not in the correct format.".to_owned());
+                                }
+                                Ok(())
+                            }),
+                    )
+                    .arg(
+                        Arg::with_name("upload")
+                            .long("upload")
+                            .takes_value(true)
+                            .index(3)
+                            .required(true)
+                            .help("Expected upload bandwidth, in mbps (e.g. 123.45)")
+                            .validator(|v| {
+                                if let Err(_) = v.parse::<f64>() {
+                                    return Err("Upload bandwidth is not in the correct format.".to_owned());
+                                }
+                                Ok(())
+                            }),
+                    )
+                    .arg(
+                        Arg::with_name("download")
+                            .long("download")
+                            .takes_value(true)
+                            .index(4)
+                            .required(true)
+                            .help("Expected download bandwidth, in mbps (e.g. 123.45)")
+                            .validator(|v| {
+                                if let Err(_) = v.parse::<f64>() {
+                                    return Err("Download bandwidth is not in the correct format.".to_owned());
+                                }
+                                Ok(())
+                            }),
+                    )
+                    .arg(
+                        Arg::with_name("threshold")
+                            .short("t")
+                            .long("threshold")
+                            .takes_value(true)
+                            .required(true)
+                            .help("Threshold percentage. If measured values follow bellow this amount an e-mail message is sent. It has to be an integer.")
+                            .default_value("20")
+                            .validator(|v| {
+                                if let Err(_) = v.parse::<u8>() {
+                                    return Err("Threshold is not in the correct format.".to_owned());
+                                }
+                                Ok(())
+                            }),
+                    )
+                    .arg(
+                        Arg::with_name("count")
+                            .short("c")
+                            .long("count")
+                            .takes_value(true)
+                            .required(true)
+                            .help("How many measurements are used to make up the average")
+                            .default_value("8")
+                            .validator(|v| {
+                                if let Err(_) = v.parse::<u8>() {
+                                    return Err("Measurement count is not in the correct format.".to_owned());
                                 }
                                 Ok(())
                             }),
@@ -133,6 +189,22 @@ impl Args {
                 }
                 Some(Command::Alert(Alert {
                     email: alert_args.value_of("email").unwrap().to_owned(),
+                    expected_download: alert_args
+                        .value_of("download")
+                        .unwrap()
+                        .parse::<f64>()
+                        .unwrap(),
+                    expected_upload: alert_args
+                        .value_of("upload")
+                        .unwrap()
+                        .parse::<f64>()
+                        .unwrap(),
+                    threshold: alert_args
+                        .value_of("threshold")
+                        .unwrap()
+                        .parse::<u8>()
+                        .unwrap(),
+                    count: alert_args.value_of("count").unwrap().parse::<u8>().unwrap(),
                     smtp: Smtp {
                         server: server.to_owned(),
                         port: port,
@@ -152,14 +224,18 @@ pub struct Run {
 #[derive(Debug)]
 pub struct Alert {
     pub email: String,
+    pub expected_download: f64,
+    pub expected_upload: f64,
+    pub threshold: u8,
+    pub count: u8,
     pub smtp: Smtp,
 }
 
 #[derive(Debug)]
 pub struct Smtp {
-    server: String,
-    port: u16,
-    credentials: Option<Credentials>,
+    pub server: String,
+    pub port: u16,
+    pub credentials: Option<Credentials>,
 }
 
 #[derive(Debug)]
