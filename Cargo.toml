@@ -6,6 +6,9 @@ authors = ["Giovanni Bassi <giggio@giggio.net>"]
 edition = "2018"
 # package
 
+[features]
+static = []
+
 [profile.release]
 lto = true
 
@@ -16,6 +19,7 @@ csv = "1.1.5"
 lettre = "0.9.5"
 lettre_email = "0.9.4"
 native-tls = "0.2.7"
+openssl = { version = "0.10.32", features = ["vendored"] }
 rev_lines = "0.2.1"
 serde = { version = "1.0.118", features = ["derive"] }
 serde_json = "1.0.61"

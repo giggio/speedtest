@@ -46,6 +46,7 @@ fn send_email(average: Average, alert: Alert) -> Result<(), String> {
             alert.email, SUBJECT, message_body
         );
     } else {
+        printlnv!("Preparing e-mail...");
         let email = Email::builder()
             .to(alert.email.clone())
             .from(alert.smtp.email.clone())
@@ -53,7 +54,9 @@ fn send_email(average: Average, alert: Alert) -> Result<(), String> {
             .text(&message_body)
             .build()
             .map_err(|err| format!("Error when creating email: {}", err))?;
+        printlnv!("Preparing mailer...");
         let mut mailer = get_mailer(&alert)?;
+        printlnv!("Sending...");
         let result = mailer.send(email.into());
         printlnv!(
             "Sent e-mail message to: {}\nSubject: {}\nBody:\n{}",
@@ -61,11 +64,11 @@ fn send_email(average: Average, alert: Alert) -> Result<(), String> {
             SUBJECT,
             message_body
         );
-        if result.is_ok() {
-            printlnv!("E-mail message was sent successfully.");
-        } else {
-            printlnv!("E-mail message was NOT sent successfully.");
+        if let Err(err) = result {
+            printlnv!("E-mail message was NOT sent successfully.\nError:\n{}", err);
             return Err("Could not send email.".to_owned());
+        } else {
+            printlnv!("E-mail message was sent successfully.");
         }
     }
     Ok(())
