@@ -1,4 +1,9 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
+use lettre::{
+    smtp::authentication::Credentials, ClientSecurity, ClientTlsParameters, SmtpClient,
+    SmtpTransport, Transport,
+};
+use lettre_email::Email;
 use rev_lines::RevLines;
 use serde::{de, Deserialize, Deserializer};
 use std::fs::File;
@@ -23,19 +28,69 @@ pub fn alert(alert: Alert) -> Result<(), Option<String>> {
 }
 
 fn send_email(average: Average, alert: Alert) -> Result<(), String> {
-    println!(
-        "Sending mail to:{}\n\
-        Latest bandwidth measurements found a discrepancy. \
-    Expected badwidth was {}mpbs for download and {}mbps for upload. \
-    Found {}mbps for download and {}mbps for upload, for the last {} hours.",
-        alert.email,
+    const SUBJECT: &str = "Bandwith bellow expectation";
+    let message_body = format!(
+        "Latest bandwidth measurements found a discrepancy.\n\
+    Expected badwidth was {} mpbs for download and {} mbps for upload.\n\
+    Found {:.2} mbps for download and {:.2} mbps for upload, for the last ~{} hours ({} samples).",
         alert.expected_download,
         alert.expected_upload,
         average.download,
         average.upload,
-        average.period_in_hours
-    ); // todo: actually send the email
+        average.period_in_hours,
+        alert.count
+    );
+    if alert.simulate {
+        println!(
+            "Would be sending e-mail message to: {}\nSubject: {}\nBody:\n{}",
+            alert.email, SUBJECT, message_body
+        );
+    } else {
+        let email = Email::builder()
+            .to(alert.email.clone())
+            .from(alert.smtp.email.clone())
+            .subject(SUBJECT)
+            .text(&message_body)
+            .build()
+            .map_err(|err| format!("Error when creating email: {}", err))?;
+        let mut mailer = get_mailer(&alert)?;
+        let result = mailer.send(email.into());
+        printlnv!(
+            "Sent e-mail message to: {}\nSubject: {}\nBody:\n{}",
+            alert.email,
+            SUBJECT,
+            message_body
+        );
+        if result.is_ok() {
+            printlnv!("E-mail message was sent successfully.");
+        } else {
+            printlnv!("E-mail message was NOT sent successfully.");
+            return Err("Could not send email.".to_owned());
+        }
+    }
     Ok(())
+}
+
+fn get_mailer(alert: &Alert) -> Result<SmtpTransport, String> {
+    let smtp_client = if let Some(credentials) = &alert.smtp.credentials {
+        let mut tls_builder = native_tls::TlsConnector::builder();
+        tls_builder.min_protocol_version(Some(lettre::smtp::client::net::DEFAULT_TLS_PROTOCOLS[0]));
+        let tls_parameters =
+            ClientTlsParameters::new(alert.smtp.server.clone(), tls_builder.build().unwrap());
+        SmtpClient::new(
+            (alert.smtp.server.clone(), alert.smtp.port),
+            ClientSecurity::Wrapper(tls_parameters),
+        )
+        .map_err(|err| format!("Error when creating smtp client: {}", err))?
+        .credentials(Credentials::new(
+            credentials.username.clone(),
+            credentials.password.clone(),
+        ))
+    } else {
+        SmtpClient::new(&alert.smtp.server, ClientSecurity::None)
+            .map_err(|err| format!("Error when creating insecure smtp client: {}", err))?
+    };
+    Ok(smtp_client.transport())
 }
 
 fn average_is_bellow(average: &Average, alert: &Alert) -> bool {
@@ -62,7 +117,7 @@ fn get_average(results: Vec<ResultCsv>) -> Average {
     Average {
         download: dl / len as f64,
         upload: ul / len as f64,
-        period_in_hours: (max_date - min_date).num_hours(),
+        period_in_hours: ((max_date - min_date).num_minutes() as f64 / 60.0).round() as i64,
     }
 }
 
@@ -78,7 +133,7 @@ fn get_latest_results(count: u8) -> Result<Option<Vec<ResultCsv>>, String> {
     };
     let mut lines = BufReader::new(&file).lines();
     let first_line = lines.next();
-    if lines.count() < (count + 1) as usize {
+    if lines.count() < count as usize {
         return Ok(None);
     }
     let revlines = RevLines::new(BufReader::new(&file))
@@ -140,10 +195,14 @@ mod tests {
             assert_eq!(
                 Average {
                     download: 100.0,
-                    upload: 100.0,
+                    upload: 200.0,
                     period_in_hours: 0
                 },
-                get_average(vec![create_result(Utc::now(), 100.0, 100.0)])
+                get_average(vec![ResultCsv {
+                    date: Utc::now(),
+                    speeds_download: 100.0,
+                    speeds_upload: 200.0,
+                }])
             );
         }
 
@@ -156,17 +215,41 @@ mod tests {
                     period_in_hours: 2
                 },
                 get_average(vec![
-                    create_result(Utc.ymd(2021, 1, 1).and_hms(0, 0, 0), 20.0, 40.0),
-                    create_result(Utc.ymd(2021, 1, 1).and_hms(2, 0, 0), 100.0, 200.0),
+                    ResultCsv {
+                        date: Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
+                        speeds_download: 20.0,
+                        speeds_upload: 40.0,
+                    },
+                    ResultCsv {
+                        date: Utc.ymd(2021, 1, 1).and_hms(2, 0, 0),
+                        speeds_download: 100.0,
+                        speeds_upload: 200.0,
+                    }
                 ])
             );
         }
-        fn create_result(date: DateTime<Utc>, download: f64, upload: f64) -> ResultCsv {
-            ResultCsv {
-                date: date,
-                speeds_download: download,
-                speeds_upload: upload,
-            }
+
+        #[test]
+        fn average_approximate_hours() {
+            assert_eq!(
+                Average {
+                    download: 1.0,
+                    upload: 1.0,
+                    period_in_hours: 2
+                },
+                get_average(vec![
+                    ResultCsv {
+                        date: Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
+                        speeds_download: 1.0,
+                        speeds_upload: 1.0,
+                    },
+                    ResultCsv {
+                        date: Utc.ymd(2021, 1, 1).and_hms(1, 59, 0),
+                        speeds_download: 1.0,
+                        speeds_upload: 1.0,
+                    }
+                ])
+            );
         }
     }
 
@@ -224,12 +307,14 @@ mod tests {
 
         fn create_alert(threshold: u8, download: f64, upload: f64) -> Alert {
             Alert {
+                simulate: false,
                 count: 1,
                 threshold: threshold,
                 expected_download: download,
                 expected_upload: upload,
                 email: "".to_owned(),
                 smtp: Smtp {
+                    email: "".to_owned(),
                     server: "".to_owned(),
                     port: 0,
                     credentials: None,

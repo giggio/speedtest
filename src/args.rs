@@ -46,10 +46,16 @@ impl Args {
                 SubCommand::with_name("alert")
                     .about("Sends an e-mail message if the average of the last measurements is bellow a bandwith value")
                     .arg(
-                        Arg::with_name("email")
-                            .long("email")
+                        Arg::with_name("sender email")
                             .takes_value(true)
                             .index(1)
+                            .required(true)
+                            .help("E-mail address to send the alert message from"),
+                    )
+                    .arg(
+                        Arg::with_name("email")
+                            .takes_value(true)
+                            .index(2)
                             .required(true)
                             .help("E-mail address to send the alert message to"),
                     )
@@ -57,7 +63,7 @@ impl Args {
                         Arg::with_name("smtp server")
                             .long("smtp")
                             .takes_value(true)
-                            .index(2)
+                            .index(3)
                             .required(true)
                             .help("SMTP server and port to use, use server:port")
                             .validator(|server_and_port| {
@@ -75,7 +81,7 @@ impl Args {
                         Arg::with_name("upload")
                             .long("upload")
                             .takes_value(true)
-                            .index(3)
+                            .index(4)
                             .required(true)
                             .help("Expected upload bandwidth, in mbps (e.g. 123.45)")
                             .validator(|v| {
@@ -89,7 +95,7 @@ impl Args {
                         Arg::with_name("download")
                             .long("download")
                             .takes_value(true)
-                            .index(4)
+                            .index(5)
                             .required(true)
                             .help("Expected download bandwidth, in mbps (e.g. 123.45)")
                             .validator(|v| {
@@ -98,6 +104,12 @@ impl Args {
                                 }
                                 Ok(())
                             }),
+                    )
+                    .arg(
+                        Arg::with_name("simulate")
+                            .short("s")
+                            .long("simulate")
+                            .help("Should write email to stdout instead of sending e-mail"),
                     )
                     .arg(
                         Arg::with_name("threshold")
@@ -188,6 +200,7 @@ impl Args {
                     credentials = None;
                 }
                 Some(Command::Alert(Alert {
+                    simulate: alert_args.is_present("simulate"),
                     email: alert_args.value_of("email").unwrap().to_owned(),
                     expected_download: alert_args
                         .value_of("download")
@@ -206,6 +219,7 @@ impl Args {
                         .unwrap(),
                     count: alert_args.value_of("count").unwrap().parse::<u8>().unwrap(),
                     smtp: Smtp {
+                        email: alert_args.value_of("sender email").unwrap().to_owned(),
                         server: server.to_owned(),
                         port: port,
                         credentials: credentials,
@@ -223,6 +237,7 @@ pub struct Run {
 }
 #[derive(Debug)]
 pub struct Alert {
+    pub simulate: bool,
     pub email: String,
     pub expected_download: f64,
     pub expected_upload: f64,
@@ -234,14 +249,15 @@ pub struct Alert {
 #[derive(Debug)]
 pub struct Smtp {
     pub server: String,
+    pub email: String,
     pub port: u16,
     pub credentials: Option<Credentials>,
 }
 
 #[derive(Debug)]
 pub struct Credentials {
-    username: String,
-    password: String,
+    pub username: String,
+    pub password: String,
 }
 
 #[cfg(test)]

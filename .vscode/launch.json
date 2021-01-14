@@ -39,12 +39,18 @@
             },
             "args": [
                 "alert",
+                "from@giggio.net",
                 "giggio@giggio.net",
-                "smtp.google.com:1111",
+                "smtp.gmail.com:465",
                 "300",
                 "150",
                 "--count",
-                "3"
+                "3",
+                "--username",
+                "foo",
+                "--password",
+                "bar",
+                "--simulate",
             ],
             "cwd": "${workspaceFolder}"
         },
