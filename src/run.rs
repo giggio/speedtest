@@ -80,7 +80,7 @@ fn run_speedtest(simulate: bool) -> Result<String, String> {
                 "Could not run {}.\nError:\n{}",
                 speedtestbin
                     .to_str()
-                    .or_else(|| Some("<filename not found>"))
+                    .or(Some("<filename not found>"))
                     .unwrap(),
                 err
             )

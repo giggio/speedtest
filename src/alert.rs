@@ -145,7 +145,7 @@ fn get_latest_results(count: u8) -> Result<Option<Vec<ResultCsv>>, String> {
     last_lines.splice(0..0, vec![first_line.unwrap().unwrap()]);
     let text = last_lines.into_iter().fold(String::new(), |mut str, item| {
         str.push_str(&item);
-        str.push_str("\n");
+        str.push('\n');
         str
     });
     let mut rdr = csv::Reader::from_reader(text.as_bytes());

@@ -71,7 +71,7 @@ impl Args {
                                 if parts.len() != 2 {
                                     return Err("Not valid server".to_owned());
                                 }
-                                if let Err(_) = parts[1].parse::<u16>() {
+                                if parts[1].parse::<u16>().is_err() {
                                     return Err("Port is not in the correct format.".to_owned());
                                 }
                                 Ok(())
@@ -85,7 +85,7 @@ impl Args {
                             .required(true)
                             .help("Expected upload bandwidth, in mbps (e.g. 123.45)")
                             .validator(|v| {
-                                if let Err(_) = v.parse::<f64>() {
+                                if v.parse::<f64>().is_err() {
                                     return Err("Upload bandwidth is not in the correct format.".to_owned());
                                 }
                                 Ok(())
@@ -99,7 +99,7 @@ impl Args {
                             .required(true)
                             .help("Expected download bandwidth, in mbps (e.g. 123.45)")
                             .validator(|v| {
-                                if let Err(_) = v.parse::<f64>() {
+                                if v.parse::<f64>().is_err() {
                                     return Err("Download bandwidth is not in the correct format.".to_owned());
                                 }
                                 Ok(())
@@ -120,7 +120,7 @@ impl Args {
                             .help("Threshold percentage. If measured values follow bellow this amount an e-mail message is sent. It has to be an integer.")
                             .default_value("20")
                             .validator(|v| {
-                                if let Err(_) = v.parse::<u8>() {
+                                if v.parse::<u8>().is_err() {
                                     return Err("Threshold is not in the correct format.".to_owned());
                                 }
                                 Ok(())
@@ -135,7 +135,7 @@ impl Args {
                             .help("How many measurements are used to make up the average")
                             .default_value("8")
                             .validator(|v| {
-                                if let Err(_) = v.parse::<u8>() {
+                                if v.parse::<u8>().is_err() {
                                     return Err("Measurement count is not in the correct format.".to_owned());
                                 }
                                 Ok(())
@@ -175,7 +175,7 @@ impl Args {
             )
     }
 
-    fn get_config_from_cl<'a>(args: clap::ArgMatches<'a>) -> Option<Command> {
+    fn get_config_from_cl(args: clap::ArgMatches) -> Option<Command> {
         match args.subcommand() {
             ("run", Some(run_args)) => Some(Command::Run(Run {
                 simulate: run_args.is_present("simulate"),
@@ -221,8 +221,8 @@ impl Args {
                     smtp: Smtp {
                         email: alert_args.value_of("sender email").unwrap().to_owned(),
                         server: server.to_owned(),
-                        port: port,
-                        credentials: credentials,
+                        port,
+                        credentials,
                     },
                 }))
             }
