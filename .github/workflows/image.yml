@@ -2,23 +2,66 @@ name: Build giggio/speedtest image
 
 on:
   push:
-    branches: main
+    branches:
+      - main
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
         uses: actions/checkout@v2
-      - name: install buildx
+
+      - name: Install Rust Stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      - name: Check format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: -- --check
+
+      - name: Check with Clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+          # use-cross: true
+
+      - name: Build amd64
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          use-cross: true
+          args: --release --target x86_64-unknown-linux-musl
+
+      - name: Build arm32v7
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          use-cross: true
+          args: --release --target armv7-unknown-linux-musleabihf
+
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          use-cross: true
+          args: --target x86_64-unknown-linux-musl
+
+      - name: Install buildx
         id: buildx
         uses: crazy-max/ghaction-docker-buildx@v1
         with:
           version: latest
-      - name: login to docker hub
+
+      - name: Login to docker hub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      - name: build the image
-        run: |
-          docker buildx build --push \
-          --tag giggio/speedtest:latest \
-          --platform linux/amd64,linux/arm/v7,linux/arm64 .
+
+      - name: Release the image
+        run: make release_with_docker_only
