@@ -30,7 +30,7 @@ impl Args {
 
     fn get_args_app<'a, 'b>() -> App<'a, 'b> {
         App::new("trackspeedtest")
-            .version("0.1")
+            .version(env!("CARGO_PKG_VERSION"))
             .author("Giovanni Bassi <giggio@giggio.net>")
             .about("Runs and manages speed tests")
             .setting(AppSettings::ArgRequiredElseHelp)
@@ -146,6 +146,7 @@ impl Args {
                             .short("u")
                             .long("username")
                             .takes_value(true)
+                            .requires("password")
                             .help("SMTP server user for authentication"),
                     )
                     .arg(
@@ -153,6 +154,7 @@ impl Args {
                             .short("p")
                             .long("password")
                             .takes_value(true)
+                            .requires("username")
                             .help("SMTP server password for authentication"),
                     )
                     .arg(
@@ -171,61 +173,114 @@ impl Args {
                             .short("s")
                             .long("simulate")
                             .help("Should simulate instead of running speed test"),
+                    )
+                    .arg(
+                        Arg::with_name("sender email")
+                            .short("e")
+                            .long("sender")
+                            .takes_value(true)
+                            .requires_all(&["email", "smtp server"])
+                            .help("E-mail address to send the alert message from"),
+                    )
+                    .arg(
+                        Arg::with_name("email")
+                            .long("to")
+                            .takes_value(true)
+                            .requires_all(&["sender email", "smtp server"])
+                            .help("E-mail address to send the alert message to"),
+                    )
+                    .arg(
+                        Arg::with_name("smtp server")
+                            .long("smtp")
+                            .takes_value(true)
+                            .requires_all(&["sender email", "email"])
+                            .help("SMTP server and port to use, use server:port")
+                            .validator(|server_and_port| {
+                                let parts: Vec<&str> = server_and_port.split(':').collect();
+                                if parts.len() != 2 {
+                                    return Err("Not valid server".to_owned());
+                                }
+                                if parts[1].parse::<u16>().is_err() {
+                                    return Err("Port is not in the correct format.".to_owned());
+                                }
+                                Ok(())
+                            }),
+                    )
+                    .arg(
+                        Arg::with_name("username")
+                            .short("u")
+                            .long("username")
+                            .requires("password")
+                            .takes_value(true)
+                            .help("SMTP server user for authentication"),
+                    )
+                    .arg(
+                        Arg::with_name("password")
+                            .short("p")
+                            .long("password")
+                            .requires("username")
+                            .takes_value(true)
+                            .help("SMTP server password for authentication"),
                     ),
             )
+    }
+
+    fn get_smtp_from_cl(args: &clap::ArgMatches) -> Option<Smtp> {
+        let smtp = if let Some(server_and_port) = args.value_of("smtp server") {
+            let parts: Vec<&str> = server_and_port.split(':').collect();
+            let server = parts[0];
+            let port = parts[1].parse::<u16>().ok()?;
+            let credentials;
+            if let (Some(username), Some(password)) =
+                (args.value_of("username"), args.value_of("password"))
+            {
+                credentials = Some(Credentials {
+                    username: username.to_owned(),
+                    password: password.to_owned(),
+                });
+            } else {
+                credentials = None;
+            }
+            let email = args.value_of("sender email")?;
+            Some(Smtp {
+                email: email.to_owned(),
+                server: server.to_owned(),
+                port,
+                credentials,
+            })
+        } else {
+            None
+        };
+        smtp
     }
 
     fn get_config_from_cl(args: clap::ArgMatches) -> Option<Command> {
         match args.subcommand() {
             ("run", Some(run_args)) => Some(Command::Run(Run {
                 simulate: run_args.is_present("simulate"),
+                email_options: EmailOptions::new_from_args(&run_args),
             })),
-            ("alert", Some(alert_args)) => {
-                let server_and_port = alert_args
-                    .value_of("smtp server")
-                    .expect("Should have server as it is required");
-                let parts: Vec<&str> = server_and_port.split(':').collect();
-                let server = parts[0];
-                let port = parts[1].parse::<u16>().unwrap();
-                let credentials;
-                if let (Some(username), Some(password)) = (
-                    alert_args.value_of("username"),
-                    alert_args.value_of("password"),
-                ) {
-                    credentials = Some(Credentials {
-                        username: username.to_owned(),
-                        password: password.to_owned(),
-                    });
-                } else {
-                    credentials = None;
-                }
-                Some(Command::Alert(Alert {
-                    simulate: alert_args.is_present("simulate"),
-                    email: alert_args.value_of("email").unwrap().to_owned(),
-                    expected_download: alert_args
-                        .value_of("download")
-                        .unwrap()
-                        .parse::<f64>()
-                        .unwrap(),
-                    expected_upload: alert_args
-                        .value_of("upload")
-                        .unwrap()
-                        .parse::<f64>()
-                        .unwrap(),
-                    threshold: alert_args
-                        .value_of("threshold")
-                        .unwrap()
-                        .parse::<u8>()
-                        .unwrap(),
-                    count: alert_args.value_of("count").unwrap().parse::<u8>().unwrap(),
-                    smtp: Smtp {
-                        email: alert_args.value_of("sender email").unwrap().to_owned(),
-                        server: server.to_owned(),
-                        port,
-                        credentials,
-                    },
-                }))
-            }
+            ("alert", Some(alert_args)) => Some(Command::Alert(Alert {
+                simulate: alert_args.is_present("simulate"),
+                email: alert_args.value_of("email").unwrap().to_owned(),
+                expected_download: alert_args
+                    .value_of("download")
+                    .unwrap()
+                    .parse::<f64>()
+                    .unwrap(),
+                expected_upload: alert_args
+                    .value_of("upload")
+                    .unwrap()
+                    .parse::<f64>()
+                    .unwrap(),
+                threshold: alert_args
+                    .value_of("threshold")
+                    .unwrap()
+                    .parse::<u8>()
+                    .unwrap(),
+                count: alert_args.value_of("count").unwrap().parse::<u8>().unwrap(),
+                smtp: Args::get_smtp_from_cl(alert_args).unwrap(),
+            })),
             _ => None,
         }
     }
@@ -234,7 +289,9 @@ impl Args {
 #[derive(Debug)]
 pub struct Run {
     pub simulate: bool,
+    pub email_options: Option<EmailOptions>,
 }
+
 #[derive(Debug)]
 pub struct Alert {
     pub simulate: bool,
@@ -258,6 +315,24 @@ pub struct Smtp {
 pub struct Credentials {
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug)]
+pub struct EmailOptions {
+    pub email: String,
+    pub smtp: Smtp,
+}
+impl EmailOptions {
+    pub fn new_from_args(args: &clap::ArgMatches) -> Option<EmailOptions> {
+        if let (Some(email), Some(smtp)) = (
+            args.value_of("email").map(|str| str.to_owned()),
+            Args::get_smtp_from_cl(&args),
+        ) {
+            Some(EmailOptions { email, smtp })
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]

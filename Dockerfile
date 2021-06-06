@@ -1,10 +1,10 @@
-FROM alpine:3.12.3 as bins
+FROM alpine:3.13 as bins
 ARG PLATFORM
-RUN wget https://bintray.com/ookla/download/download_file?file_path=ookla-speedtest-1.0.0-${PLATFORM}-linux.tgz -O speedtest.tgz && \
+RUN wget https://install.speedtest.net/app/cli/ookla-speedtest-1.0.0-${PLATFORM}-linux.tgz -O speedtest.tgz && \
     tar -xvzf speedtest.tgz && \
     mv ./speedtest /usr/bin/ && \
     rm speedtest.*
-COPY target/output/trackspeedtest /app/trackspeedtest 
+COPY target/output/trackspeedtest /app/trackspeedtest
 RUN apk add binutils && strip /app/trackspeedtest
 
 FROM opensuse/leap:15.2 as opensuse

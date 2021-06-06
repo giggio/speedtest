@@ -1,7 +1,10 @@
 #[macro_use]
 mod macros;
+#[macro_use]
+extern crate derivative;
 mod alert;
 mod args;
+mod mail;
 mod run;
 use args::{Args, Command};
 

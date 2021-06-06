@@ -1,9 +1,4 @@
 use chrono::{DateTime, NaiveDateTime, Utc};
-use lettre::{
-    smtp::authentication::Credentials, ClientSecurity, ClientTlsParameters, SmtpClient,
-    SmtpTransport, Transport,
-};
-use lettre_email::Email;
 use rev_lines::RevLines;
 use serde::{de, Deserialize, Deserializer};
 use std::fs::File;
@@ -11,6 +6,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 
 use crate::args::Alert;
+use crate::mail;
 
 pub fn alert(alert: Alert) -> Result<(), Option<String>> {
     let results = match get_latest_results(alert.count)? {
@@ -28,7 +24,6 @@ pub fn alert(alert: Alert) -> Result<(), Option<String>> {
 }
 
 fn send_email(average: Average, alert: Alert) -> Result<(), String> {
-    const SUBJECT: &str = "Bandwith bellow expectation";
     let message_body = format!(
         "Latest bandwidth measurements found a discrepancy.\n\
     Expected badwidth was {} mpbs for download and {} mbps for upload.\n\
@@ -40,60 +35,14 @@ fn send_email(average: Average, alert: Alert) -> Result<(), String> {
         average.period_in_hours,
         alert.count
     );
-    if alert.simulate {
-        println!(
-            "Would be sending e-mail message to: {}\nSubject: {}\nBody:\n{}",
-            alert.email, SUBJECT, message_body
-        );
-    } else {
-        printlnv!("Preparing e-mail...");
-        let email = Email::builder()
-            .to(alert.email.clone())
-            .from(alert.smtp.email.clone())
-            .subject(SUBJECT)
-            .text(&message_body)
-            .build()
-            .map_err(|err| format!("Error when creating email: {}", err))?;
-        printlnv!("Preparing mailer...");
-        let mut mailer = get_mailer(&alert)?;
-        printlnv!("Sending...");
-        let result = mailer.send(email.into());
-        printlnv!(
-            "Sent e-mail message to: {}\nSubject: {}\nBody:\n{}",
-            alert.email,
-            SUBJECT,
-            message_body
-        );
-        if let Err(err) = result {
-            printlnv!("E-mail message was NOT sent successfully.\nError:\n{}", err);
-            return Err("Could not send email.".to_owned());
-        } else {
-            printlnv!("E-mail message was sent successfully.");
-        }
-    }
+    mail::send_mail(
+        alert.simulate,
+        alert.email,
+        "Bandwith bellow expectation",
+        &message_body,
+        alert.smtp,
+    )?;
     Ok(())
-}
-
-fn get_mailer(alert: &Alert) -> Result<SmtpTransport, String> {
-    let smtp_client = if let Some(credentials) = &alert.smtp.credentials {
-        let mut tls_builder = native_tls::TlsConnector::builder();
-        tls_builder.min_protocol_version(Some(lettre::smtp::client::net::DEFAULT_TLS_PROTOCOLS[0]));
-        let tls_parameters =
-            ClientTlsParameters::new(alert.smtp.server.clone(), tls_builder.build().unwrap());
-        SmtpClient::new(
-            (alert.smtp.server.clone(), alert.smtp.port),
-            ClientSecurity::Wrapper(tls_parameters),
-        )
-        .map_err(|err| format!("Error when creating smtp client: {}", err))?
-        .credentials(Credentials::new(
-            credentials.username.clone(),
-            credentials.password.clone(),
-        ))
-    } else {
-        SmtpClient::new(&alert.smtp.server, ClientSecurity::None)
-            .map_err(|err| format!("Error when creating insecure smtp client: {}", err))?
-    };
-    Ok(smtp_client.transport())
 }
 
 fn average_is_bellow(average: &Average, alert: &Alert) -> bool {
@@ -312,7 +261,7 @@ mod tests {
             Alert {
                 simulate: false,
                 count: 1,
-                threshold: threshold,
+                threshold,
                 expected_download: download,
                 expected_upload: upload,
                 email: "".to_owned(),

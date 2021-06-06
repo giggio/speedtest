@@ -1,4 +1,4 @@
-.PHONY: default build test clean build_release build_amd64_static docker_build_amd64_static release_amd64_static build_armv7_static docker_build_armv7_static release_armv7_static release_with_docker_only release
+.PHONY: default build test clean run run_without_network build_release build_amd64_static docker_build_amd64_static release_amd64_static build_armv7_static docker_build_armv7_static release_armv7_static release_with_docker_only release
 
 amd64_target := x86_64-unknown-linux-musl
 arm32v7_target := armv7-unknown-linux-musleabihf
@@ -12,6 +12,12 @@ test:
 
 clean:
 	cargo clean
+
+run:
+	cargo run
+
+run_without_network:
+	unshare -r -n -- cargo run
 
 build_release:
 	cargo build --release

@@ -57,6 +57,9 @@ into the data folder. It is useful to help you setup your infrastructure without
 having to wait for a full speed test to run and also does not use any bandwidth.
 It simply saves the files.
 
+This command can optionally sends an e-mail when the measurement fails and will
+require mail parameters if you want to use that functionality (see bellow).
+
 #### Alerting
 
 To view available args run:
@@ -65,17 +68,21 @@ To view available args run:
 docker run --rm giggio/speedtest alert --help
 ````
 
-This command will send you an e-mail using SMTP. You have to supply the values
-like server, port, sender and destination e-mail addresses etc. Authentication
-information is optional, but most mail servers will require it.
-
+This command sends e-mails and will require mail parameters (see bellow).
 It also has a simulate argument. It will not send the email, but simply write to
 the terminal on stdout what it would send through in an e-mail.
 
 It will take the last 8 results (customizable with `--count`) and average them.
+If the value is above the threshold the e-mail is sent.
 
-You need to supply expected the upload and download bandwidth, and you may
+You need to supply the expected upload and download bandwidth, and you may
 optionally supply a threshold to when the e-mail should be sent (defaults to 20%).
+
+#### E-mail options
+
+Commands that send e-mail will do so using SMTP. You have to supply the values
+like server, port, sender and destination e-mail addresses etc. Authentication
+information is optional, but most mail servers will require it.
 
 ## Background
 

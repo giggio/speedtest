@@ -1,4 +1,6 @@
+use crate::args::EmailOptions;
 use crate::args::Run;
+use crate::mail;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use std::env;
@@ -8,10 +10,11 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 pub fn run(run: Run) -> Result<(), Option<String>> {
-    let json_result = run_speedtest(run.simulate)?;
+    let json_result = run_speedtest(run.simulate, run.email_options)?;
     let result = convert_json(json_result)?;
     write_to_result_file(&result)?;
     append_to_summary_file(&result)?;
+    printlnv!("Got results:\n{:?}", &result);
     Ok(())
 }
 
@@ -68,7 +71,7 @@ fn append_to_summary_file(result: &SpeedResult) -> Result<(), String> {
     Ok(())
 }
 
-fn run_speedtest(simulate: bool) -> Result<String, String> {
+fn run_speedtest(simulate: bool, email_options: Option<EmailOptions>) -> Result<String, String> {
     let (speedtestbin, args) = find_speedtest_binary_and_args(simulate)?;
     let child = std::process::Command::new(&speedtestbin)
         .args(args)
@@ -91,11 +94,23 @@ fn run_speedtest(simulate: bool) -> Result<String, String> {
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     } else {
-        Err(format!(
-            "Speedtest executable exited with an error. Output:\n{}\nErrors:\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        ))
+        let stdout_text = String::from_utf8_lossy(&output.stdout);
+        let mut error_message = if stdout_text.is_empty() {
+            format!(
+                "Speedtest executable exited with an error and no output. Errors:\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+        } else {
+            format!(
+                "Speedtest executable exited with an error. Output:\n{}\nErrors:\n{}",
+                stdout_text,
+                String::from_utf8_lossy(&output.stderr)
+            )
+        };
+        if let Err(msg) = send_email_on_error(simulate, &error_message, email_options) {
+            error_message += &format!("\nAlso, could not send e-mail. Error:\n{}", &msg);
+        };
+        Err(error_message)
     }
 }
 
@@ -160,7 +175,25 @@ fn convert_json(json: String) -> Result<SpeedResult, String> {
     }
 }
 
-#[derive(Debug)]
+fn send_email_on_error(
+    simulate: bool,
+    message_body: &str,
+    optinal_email_options: Option<EmailOptions>,
+) -> Result<(), String> {
+    if let Some(email_options) = optinal_email_options {
+        mail::send_mail(
+            simulate,
+            email_options.email,
+            "Could not measure bandwidth",
+            message_body,
+            email_options.smtp,
+        )?;
+    }
+    Ok(())
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 struct SpeedResult {
     date: DateTime<Utc>,
     ping: f64,
@@ -172,6 +205,7 @@ struct SpeedResult {
     server_location: String,
     server_country: String,
     server_id: u32,
+    #[derivative(Debug = "ignore")]
     jsonresult: String,
 }
 
