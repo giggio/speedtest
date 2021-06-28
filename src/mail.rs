@@ -1,33 +1,24 @@
 use std::str;
 
-use lettre::{
-    smtp::authentication::Credentials, ClientSecurity, ClientTlsParameters, SmtpClient,
-    SmtpTransport, Transport,
-};
-use lettre_email::Email;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
 
 use crate::args::Smtp;
 
 fn get_mailer(smtp: &Smtp) -> Result<SmtpTransport, String> {
-    let smtp_client = if let Some(credentials) = &smtp.credentials {
-        let mut tls_builder = native_tls::TlsConnector::builder();
-        tls_builder.min_protocol_version(Some(lettre::smtp::client::net::DEFAULT_TLS_PROTOCOLS[0]));
-        let tls_parameters =
-            ClientTlsParameters::new(smtp.server.clone(), tls_builder.build().unwrap());
-        SmtpClient::new(
-            (smtp.server.clone(), smtp.port),
-            ClientSecurity::Wrapper(tls_parameters),
-        )
-        .map_err(|err| format!("Error when creating smtp client: {}", err))?
-        .credentials(Credentials::new(
-            credentials.username.clone(),
-            credentials.password.clone(),
-        ))
-    } else {
-        SmtpClient::new(&smtp.server, ClientSecurity::None)
-            .map_err(|err| format!("Error when creating insecure smtp client: {}", err))?
-    };
-    Ok(smtp_client.transport())
+    let mut smtp_transport_builder = SmtpTransport::relay(&smtp.server)
+        .map_err(|err| {
+            format!(
+                "Could not create smtp transport with relay '{}'. Error: {}",
+                smtp.server, err
+            )
+        })?
+        .port(smtp.port);
+    if let Some(credentials) = &smtp.credentials {
+        let creds = Credentials::new(credentials.username.clone(), credentials.password.clone());
+        smtp_transport_builder = smtp_transport_builder.credentials(creds);
+    }
+    Ok(smtp_transport_builder.build())
 }
 
 pub fn send_mail(
@@ -44,22 +35,31 @@ pub fn send_mail(
         );
     } else {
         printlnv!("Preparing e-mail...");
-        let email = Email::builder()
-            .to(email_address.clone())
-            .from(smtp.email.clone())
+        let email = Message::builder()
+            .from(smtp.email.parse().map_err(|err| {
+                format!(
+                    "Could not convert email for 'from' from text '{}'. Error: {}",
+                    smtp.email, err
+                )
+            })?)
+            .to(email_address.parse().map_err(|err| {
+                format!(
+                    "Could not convert email for 'to' from text '{}'. Error: {}",
+                    email_address, err
+                )
+            })?)
             .subject(subject)
-            .text(message_body)
-            .build()
+            .body(message_body.to_owned())
             .map_err(|err| format!("Error when creating email: {}", err))?;
         printlnv!("Preparing mailer...");
-        let mut mailer = get_mailer(&smtp)?;
+        let mailer = get_mailer(&smtp)?;
         printlnv!(
             "Sending e-mail message to: {}\nSubject: {}\nBody:\n{}",
             email_address,
             subject,
             message_body
         );
-        let result = mailer.send(email.into());
+        let result = mailer.send(&email);
         if let Err(err) = result {
             printlnv!("E-mail message was NOT sent successfully.\nError:\n{}", err);
             return Err("Could not send email.".to_owned());
