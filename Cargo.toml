@@ -1,10 +1,18 @@
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package]
 name = "trackspeedtest"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Giovanni Bassi <giggio@giggio.net>"]
-edition = "2018"
-# package
+edition = "2021"
+exclude = [
+    "Dockerfile",
+    ".*",
+    "data/",
+    "target/",
+    "Makefile",
+    ".vscode/",
+    "github/",
+]
 
 [features]
 static = []
@@ -14,10 +22,10 @@ lto = true
 
 [dependencies]
 chrono = "0.4.19"
-clap = "2.33.3"
+clap = "2.x"
 csv = "1.1.6"
 derivative = "2.2.0"
-lettre = { version = "0.10.0-rc.3", features = ["rustls-tls"] }
+lettre = { version = "0.10.0-rc.7", features = ["rustls-tls"] }
 lettre_email = "0.9.4"
 openssl = { version = "0.10.34", features = ["vendored"] }
 rev_lines = "0.2.1"
@@ -27,4 +35,4 @@ serde_yaml = "0.8.17"
 which = "4.1.0"
 
 [dev-dependencies]
-pretty_assertions = "0.7.2"
+pretty_assertions = "1.2.1"

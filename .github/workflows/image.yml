@@ -1,6 +1,7 @@
 name: Build giggio/speedtest image
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
