@@ -21,6 +21,9 @@ jobs:
           components: rustfmt, clippy
           override: true
 
+      - name: Login to docker hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
       - name: Check format
         uses: actions-rs/cargo@v1
         with:
@@ -60,9 +63,6 @@ jobs:
         uses: crazy-max/ghaction-docker-buildx@v1
         with:
           version: latest
-
-      - name: Login to docker hub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
       - name: Release the image
         run: make release_with_docker_only
