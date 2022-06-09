@@ -230,17 +230,16 @@ impl Args {
             let parts: Vec<&str> = server_and_port.split(':').collect();
             let server = parts[0];
             let port = parts[1].parse::<u16>().ok()?;
-            let credentials;
-            if let (Some(username), Some(password)) =
+            let credentials = if let (Some(username), Some(password)) =
                 (args.value_of("username"), args.value_of("password"))
             {
-                credentials = Some(Credentials {
+                Some(Credentials {
                     username: username.to_owned(),
                     password: password.to_owned(),
-                });
+                })
             } else {
-                credentials = None;
-            }
+                None
+            };
             let email = args.value_of("sender email")?;
             Some(Smtp {
                 email: email.to_owned(),
@@ -258,7 +257,7 @@ impl Args {
         match args.subcommand() {
             ("run", Some(run_args)) => Some(Command::Run(Run {
                 simulate: run_args.is_present("simulate"),
-                email_options: EmailOptions::new_from_args(&run_args),
+                email_options: EmailOptions::new_from_args(run_args),
             })),
             ("alert", Some(alert_args)) => Some(Command::Alert(Alert {
                 simulate: alert_args.is_present("simulate"),
@@ -326,7 +325,7 @@ impl EmailOptions {
     pub fn new_from_args(args: &clap::ArgMatches) -> Option<EmailOptions> {
         if let (Some(email), Some(smtp)) = (
             args.value_of("email").map(|str| str.to_owned()),
-            Args::get_smtp_from_cl(&args),
+            Args::get_smtp_from_cl(args),
         ) {
             Some(EmailOptions { email, smtp })
         } else {
@@ -349,6 +348,6 @@ mod tests {
             Command::Alert(_) => panic!("Should not be alert"),
             Command::Run(run) => run,
         };
-        assert_eq!(true, run.simulate);
+        assert!(run.simulate);
     }
 }

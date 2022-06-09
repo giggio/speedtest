@@ -81,10 +81,7 @@ fn run_speedtest(simulate: bool, email_options: Option<EmailOptions>) -> Result<
         .map_err(|err| {
             format!(
                 "Could not run {}.\nError:\n{}",
-                speedtestbin
-                    .to_str()
-                    .or(Some("<filename not found>"))
-                    .unwrap(),
+                speedtestbin.to_str().unwrap_or("<filename not found>"),
                 err
             )
         })?;
@@ -167,7 +164,7 @@ fn convert_json(json: String) -> Result<SpeedResult, String> {
         Err(err) => {
             let msg = format!(
                 "Could not parse result. Json:\n{}\nError:{}",
-                String::from_utf8_lossy(&json.as_bytes()),
+                String::from_utf8_lossy(json.as_bytes()),
                 err
             );
             Err(msg)
