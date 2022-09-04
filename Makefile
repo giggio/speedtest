@@ -65,7 +65,7 @@ release_with_docker_only: docker_build_amd64_static docker_build_armv7_static do
 	VERSION=$$(./target/$(amd64_target)/release/trackspeedtest --version | cut -f2 -d ' '); \
 	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest create giggio/speedtest:$$VERSION \
 		--amend giggio/speedtest:$$VERSION-amd64 \
-		--amend giggio/speedtest:$$VERSION-arm32v7; \
+		--amend giggio/speedtest:$$VERSION-arm32v7 \
 		--amend giggio/speedtest:$$VERSION-arm64; \
 	DOCKER_CLI_EXPERIMENTAL=enabled docker manifest push giggio/speedtest:$$VERSION
 
