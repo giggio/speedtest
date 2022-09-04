@@ -1,6 +1,6 @@
 FROM alpine:3.16 as bins
 ARG PLATFORM
-RUN wget https://install.speedtest.net/app/cli/ookla-speedtest-1.1.1-linux-${PLATFORM}.tgz -O speedtest.tgz && \
+RUN wget https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-${PLATFORM}.tgz -O speedtest.tgz && \
     tar -xvzf speedtest.tgz && \
     mv ./speedtest /usr/bin/ && \
     rm speedtest.*

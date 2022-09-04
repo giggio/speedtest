@@ -58,6 +58,13 @@ jobs:
           use-cross: true
           args: --release --target armv7-unknown-linux-musleabihf
 
+      - name: Build arm64
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          use-cross: true
+          args: --release --target aarch64-unknown-linux-musl
+
       - name: Test
         uses: actions-rs/cargo@v1
         with:
