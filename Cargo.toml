@@ -14,11 +14,9 @@ exclude = [
     "github/",
 ]
 
-[features]
-static = []
-
 [profile.release]
 lto = true
+strip = "symbols"
 
 [dependencies]
 chrono = "0.4.19"
