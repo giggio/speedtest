@@ -54,8 +54,8 @@ fn get_average(results: Vec<ResultCsv>) -> Average {
     let mut dl = 0.0;
     let mut ul = 0.0;
     let len = results.len();
-    let mut min_date = chrono::MAX_DATETIME;
-    let mut max_date = chrono::MIN_DATETIME;
+    let mut min_date = DateTime::<Utc>::MAX_UTC;
+    let mut max_date = DateTime::<Utc>::MIN_UTC;
     for result in results.into_iter() {
         dl += result.speeds_download;
         ul += result.speeds_upload;
