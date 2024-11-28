@@ -1,4 +1,4 @@
-FROM alpine:3.16 as bins
+FROM alpine:3.20 AS bins
 ARG PLATFORM
 RUN wget https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-${PLATFORM}.tgz -O speedtest.tgz && \
     tar -xvzf speedtest.tgz && \
@@ -7,7 +7,7 @@ RUN wget https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-${PLA
 COPY target/output/trackspeedtest /app/trackspeedtest
 RUN apk add binutils && strip /app/trackspeedtest
 
-FROM opensuse/leap:15.4 as opensuse
+FROM opensuse/leap:15.5 AS opensuse
 RUN ldd /bin/echo | tr -s '[:blank:]' '\n' | grep '^/' | \
     xargs -I % sh -c 'mkdir -p $(dirname deps%); cp % deps%;'
 
