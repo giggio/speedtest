@@ -118,7 +118,6 @@ where
 }
 
 #[derive(Debug, Deserialize)]
-// #[serde(rename_all = "PascalCase")]
 #[serde()]
 struct ResultCsv {
     #[serde(deserialize_with = "date_time_from_str")]
