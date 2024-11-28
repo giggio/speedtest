@@ -114,7 +114,7 @@ where
 {
     let s: String = Deserialize::deserialize(deserializer)?;
     let ndt = NaiveDateTime::parse_from_str(&s, "%Y/%m/%d %H:%M:%S").map_err(de::Error::custom)?;
-    Ok(DateTime::<Utc>::from_utc(ndt, Utc))
+    Ok(DateTime::from_naive_utc_and_offset(ndt, Utc))
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,12 +168,12 @@ mod tests {
                 },
                 get_average(vec![
                     ResultCsv {
-                        date: Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
+                        date: Utc.with_ymd_and_hms(2021, 1, 1, 0, 0, 0).unwrap(),
                         speeds_download: 20.0,
                         speeds_upload: 40.0,
                     },
                     ResultCsv {
-                        date: Utc.ymd(2021, 1, 1).and_hms(2, 0, 0),
+                        date: Utc.with_ymd_and_hms(2021, 1, 1, 2, 0, 0).unwrap(),
                         speeds_download: 100.0,
                         speeds_upload: 200.0,
                     }
@@ -191,12 +191,12 @@ mod tests {
                 },
                 get_average(vec![
                     ResultCsv {
-                        date: Utc.ymd(2021, 1, 1).and_hms(0, 0, 0),
+                        date: Utc.with_ymd_and_hms(2021, 1, 1, 0, 0, 0).unwrap(),
                         speeds_download: 1.0,
                         speeds_upload: 1.0,
                     },
                     ResultCsv {
-                        date: Utc.ymd(2021, 1, 1).and_hms(1, 59, 0),
+                        date: Utc.with_ymd_and_hms(2021, 1, 1, 1, 59, 0).unwrap(),
                         speeds_download: 1.0,
                         speeds_upload: 1.0,
                     }
