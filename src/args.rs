@@ -175,6 +175,11 @@ impl Args {
                             .help("Should simulate instead of running speed test"),
                     )
                     .arg(
+                        Arg::with_name("show_results")
+                            .long("show-results")
+                            .help("Sends results to stdout, one result per line: download, upload, ping"),
+                    )
+                    .arg(
                         Arg::with_name("sender email")
                             .short("e")
                             .long("sender")
@@ -258,6 +263,7 @@ impl Args {
             ("run", Some(run_args)) => Some(Command::Run(Run {
                 simulate: run_args.is_present("simulate"),
                 email_options: EmailOptions::new_from_args(run_args),
+                show_results: run_args.is_present("show_results"),
             })),
             ("alert", Some(alert_args)) => Some(Command::Alert(Alert {
                 simulate: alert_args.is_present("simulate"),
@@ -289,6 +295,7 @@ impl Args {
 pub struct Run {
     pub simulate: bool,
     pub email_options: Option<EmailOptions>,
+    pub show_results: bool,
 }
 
 #[derive(Debug)]

@@ -14,6 +14,11 @@ pub fn run(run: Run) -> Result<(), Option<String>> {
     let result = convert_json(json_result)?;
     write_to_result_file(&result)?;
     append_to_summary_file(&result)?;
+    if run.show_results {
+        println!("{}", &result.download);
+        println!("{}", &result.upload);
+        println!("{}", &result.ping);
+    }
     printlnv!("Got results:\n{:?}", &result);
     Ok(())
 }
