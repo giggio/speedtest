@@ -45,7 +45,6 @@ fn append_to_summary_file(result: &SpeedResult) -> Result<(), String> {
     let file_path = data_dir.join("speed.csv");
     let mut file = if file_path.exists() {
         OpenOptions::new()
-            .write(true)
             .create(true)
             .append(true)
             .open(file_path)
