@@ -88,9 +88,9 @@ fn get_latest_results(count: u8) -> Result<Option<Vec<ResultCsv>>, String> {
     if lines.count() < count as usize {
         return Ok(None);
     }
-    let revlines = RevLines::new(BufReader::new(&file))
+    let revlines = RevLines::new(&file);
+    let mut last_lines: Vec<String> = Result::from_iter(revlines.take(count as usize))
         .map_err(|err| format!("Error when opening file: {}", err))?;
-    let mut last_lines: Vec<String> = revlines.take(count as usize).collect();
     last_lines.splice(0..0, vec![first_line.unwrap().unwrap()]);
     let text = last_lines.into_iter().fold(String::new(), |mut str, item| {
         str.push_str(&item);
