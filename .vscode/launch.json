@@ -4,7 +4,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug trackspeedtest run",
+            "name": "Debug trackspeedtest run (simulated)",
             "cargo": {
                 "args": [
                     "build",
@@ -19,6 +19,27 @@
             "args": [
                 "run",
                 "-vs"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug trackspeedtest run (with real speed test)",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=trackspeedtest",
+                    "--package=trackspeedtest"
+                ],
+                "filter": {
+                    "name": "trackspeedtest",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "run",
+                "-v"
             ],
             "cwd": "${workspaceFolder}"
         },
